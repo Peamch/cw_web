@@ -1,0 +1,22 @@
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI}
+  application:
+    name: cw-web
+
+server:
+  port: ${PORT:8080}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000
+    refresh-expiration: 604800000
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:*}
+
+logging:
+  level:
+    root: INFO
+    com.example.cwweb: DEBUG

@@ -1,0 +1,66 @@
+QUICK FILE COPY GUIDE
+=====================
+
+Prerequisites:
+1. Run: cd C:\Users\mormy\IdeaProjects\cw_web\frontend
+2. Run: "src", "src\api", "src\components", "src\pages", "src\store", "src\utils", "public" | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ }
+
+Now manually create these files by copying from the markdown files:
+
+FILES TO CREATE:
+================
+
+From FRONTEND_CODE.md:
+---------------------
+1. src\main.jsx
+2. src\index.css
+3. src\App.jsx
+4. src\api\client.js
+5. src\api\auth.js
+6. src\api\goals.js
+7. src\api\groups.js
+8. src\api\achievements.js
+9. src\store\authStore.js
+10. src\components\Layout.jsx
+
+From FRONTEND_PAGES.md:
+-----------------------
+11. src\pages\Login.jsx
+12. src\pages\Register.jsx
+13. src\pages\Dashboard.jsx
+
+From FRONTEND_PAGES2.md:
+------------------------
+14. src\pages\Goals.jsx
+15. src\pages\GoalDetail.jsx
+
+From FRONTEND_PAGES3.md:
+------------------------
+16. src\pages\Groups.jsx
+17. src\pages\GroupDetail.jsx
+18. src\pages\Achievements.jsx
+
+Total: 18 files to copy
+
+After copying all files:
+npm install
+npm run dev
+
+CHECKLIST:
+==========
+[ ] Created all directories
+[ ] Copied 10 files from FRONTEND_CODE.md
+[ ] Copied 3 files from FRONTEND_PAGES.md
+[ ] Copied 2 files from FRONTEND_PAGES2.md
+[ ] Copied 3 files from FRONTEND_PAGES3.md
+[ ] Ran npm install
+[ ] Ran npm run dev
+[ ] Opened http://localhost:3000
+[ ] Tested registration
+[ ] Tested login
+[ ] Tested creating a goal
+[ ] Tested logging progress
+[ ] Tested joining a group
+[ ] Tested viewing achievements
+
+If everything works: SUCCESS! 🎉
