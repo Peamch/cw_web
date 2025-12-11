@@ -928,9 +928,232 @@ doc.add_paragraph()
 
 add_para(doc, 'Таким чином, frontend частина реалізована на сучасному стеку React 18 + Vite з використанням best practices: функціональні компоненти з хуками, централізоване управління станом через Zustand, модульна архітектура API клієнтів, автоматичне оновлення JWT токенів, адаптивний дизайн через Tailwind CSS.')
 
+# 4.1.4 Repository Layer
+doc.add_page_break()
+doc.add_heading('4.1.4 Репозиторії - доступ до даних', level=3)
+
+add_explanation(doc,
+    'Інтерфейс GoalRepository - робота з MongoDB:',
+    'GoalRepository розширює MongoRepository, що надає готові методи для CRUD операцій. Додатково визначаються кастомні методи для пошуку цілей за користувачем, статусом та публічністю. Spring Data автоматично генерує реалізацію на основі назв методів.')
+
+add_code_block(doc, [
+    'package com.example.cwweb.goals;',
+    '',
+    'import org.springframework.data.domain.Page;',
+    'import org.springframework.data.domain.Pageable;',
+    'import org.springframework.data.mongodb.repository.MongoRepository;',
+    'import org.springframework.stereotype.Repository;',
+    'import java.util.List;',
+    'import java.util.Optional;',
+    '',
+    '@Repository',
+    'public interface GoalRepository extends MongoRepository<Goal, String> {',
+    '    Page<Goal> findByUserId(String userId, Pageable pageable);',
+    '    List<Goal> findByUserId(String userId);',
+    '    Page<Goal> findByUserIdAndStatus(String userId,',
+    '                                     GoalStatus status,',
+    '                                     Pageable pageable);',
+    '    List<Goal> findByIsPublicTrue();',
+    '    Optional<Goal> findByIdAndUserId(String goalId, String userId);',
+    '}'
+])
+
+add_para(doc, 'MongoRepository<Goal, String> надає базові методи: save(), findById(), findAll(), deleteById(). Кастомні методи: findByUserId - знаходить всі цілі користувача, findByUserIdAndStatus - фільтрує за статусом, findByIsPublicTrue - знаходить публічні цілі, findByIdAndUserId - комбінований пошук. Pageable параметр дозволяє пагінацію великих результатів.')
+
+doc.add_paragraph()
+
+# 4.1.5 Security Configuration
+doc.add_heading('4.1.5 Конфігурація безпеки Spring Security', level=3)
+
+add_explanation(doc,
+    'Клас SecurityConfig - налаштування безпеки:',
+    'SecurityConfig налаштовує Spring Security для роботи з JWT токенами. Визначає, які endpoint\'и доступні публічно, які вимагають автентифікації. CSRF вимкнено, оскільки використовується stateless автентифікація через JWT. Додається кастомний фільтр JwtAuthenticationFilter для валідації токенів.')
+
+add_code_block(doc, [
+    'package com.example.cwweb.config;',
+    '',
+    'import com.example.cwweb.auth.JwtTokenProvider;',
+    'import org.springframework.context.annotation.Bean;',
+    'import org.springframework.context.annotation.Configuration;',
+    'import org.springframework.http.HttpMethod;',
+    'import org.springframework.security.config.annotation.web.builders.HttpSecurity;',
+    'import org.springframework.security.config.annotation.web.configuration',
+    '                                                        .EnableWebSecurity;',
+    'import org.springframework.security.config.http.SessionCreationPolicy;',
+    'import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;',
+    'import org.springframework.security.crypto.password.PasswordEncoder;',
+    'import org.springframework.security.web.SecurityFilterChain;',
+    'import org.springframework.security.web.authentication',
+    '                                    .UsernamePasswordAuthenticationFilter;',
+    '',
+    '@Configuration',
+    '@EnableWebSecurity',
+    'public class SecurityConfig {',
+    '    private final JwtTokenProvider tokenProvider;',
+    '',
+    '    public SecurityConfig(JwtTokenProvider tokenProvider) {',
+    '        this.tokenProvider = tokenProvider;',
+    '    }',
+    '',
+    '    @Bean',
+    '    public PasswordEncoder passwordEncoder() {',
+    '        return new BCryptPasswordEncoder();',
+    '    }',
+    '',
+    '    @Bean',
+    '    public SecurityFilterChain filterChain(HttpSecurity http)',
+    '            throws Exception {',
+    '        http',
+    '            .csrf(csrf -> csrf.disable())',
+    '            .sessionManagement(sm -> sm.sessionCreationPolicy(',
+    '                SessionCreationPolicy.STATELESS))',
+    '            .authorizeHttpRequests(auth -> auth',
+    '                .requestMatchers("/auth/**", "/api/auth/**").permitAll()',
+    '                .requestMatchers("/public/**").permitAll()',
+    '                .requestMatchers(HttpMethod.GET, "/groups").permitAll()',
+    '                .requestMatchers("/admin/**").hasRole("ADMIN")',
+    '                .anyRequest().authenticated()',
+    '            )',
+    '            .addFilterBefore(',
+    '                new JwtAuthenticationFilter(tokenProvider),',
+    '                UsernamePasswordAuthenticationFilter.class',
+    '            );',
+    '        return http.build();',
+    '    }',
+    '}'
+])
+
+add_para(doc, 'BCryptPasswordEncoder використовується для хешування паролів з 10 раундами за замовчуванням. SessionCreationPolicy.STATELESS вимикає створення HTTP сесій. authorizeHttpRequests налаштовує доступ: /auth/** - публічний доступ для реєстрації/входу, /admin/** - тільки для адміністраторів, решта endpoint\'ів вимагають автентифікації. JwtAuthenticationFilter валідує токен перед кожним запитом.')
+
+doc.add_page_break()
+
+# 4.2.5 Додаткові React компоненти
+doc.add_heading('4.2.5 Сторінка Goals.jsx - управління цілями', level=3)
+
+add_explanation(doc,
+    'Компонент Goals - CRUD операції над цілями:',
+    'Goals компонент відображає список цілей та модальне вікно для створення нових. Використовує useState для управління станом форми та модального вікна. Реалізує повний CRUD: перегляд списку, створення через форму в модалі, редагування та видалення (на детальній сторінці). Модальне вікно з backdrop blur створює сучасний UX.')
+
+add_code_block(doc, [
+    "import { useEffect, useState } from 'react'",
+    "import { goalsAPI } from '../api/goals'",
+    "import { Plus, X } from 'lucide-react'",
+    "import toast from 'react-hot-toast'",
+    "import { useNavigate } from 'react-router-dom'",
+    "",
+    "export default function Goals() {",
+    "  const [goals, setGoals] = useState([])",
+    "  const [showModal, setShowModal] = useState(false)",
+    "  const [loading, setLoading] = useState(false)",
+    "  const [formData, setFormData] = useState({",
+    "    title: '',",
+    "    description: '',",
+    "    frequency: 'DAILY',",
+    "    isPublic: false,",
+    "  })",
+    "  const navigate = useNavigate()",
+    "",
+    "  useEffect(() => { loadGoals() }, [])",
+    "",
+    "  const loadGoals = async () => {",
+    "    try {",
+    "      const data = await goalsAPI.getAll()",
+    "      setGoals(data)",
+    "    } catch (error) {",
+    "      toast.error('Failed to load goals')",
+    "    }",
+    "  }",
+    "",
+    "  const handleSubmit = async (e) => {",
+    "    e.preventDefault()",
+    "    setLoading(true)",
+    "    try {",
+    "      await goalsAPI.create(formData)",
+    "      toast.success('Goal created!')",
+    "      setShowModal(false)",
+    "      setFormData({ title: '', description: '',",
+    "                    frequency: 'DAILY', isPublic: false })",
+    "      loadGoals()",
+    "    } catch (error) {",
+    "      toast.error('Failed to create goal')",
+    "    } finally {",
+    "      setLoading(false)",
+    "    }",
+    "  }",
+    "",
+    "  return (",
+    "    <div>",
+    "      <div className='mb-8'>",
+    "        <button onClick={() => setShowModal(true)}",
+    "          className='flex items-center px-5 py-2.5",
+    "                     bg-gradient-to-r from-green-600 to-teal-600",
+    "                     text-white rounded-xl'>",
+    "          <Plus className='w-5 h-5 mr-2' />",
+    "          New Goal",
+    "        </button>",
+    "      </div>",
+    "",
+    "      <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>",
+    "        {goals.map((goal) => (",
+    "          <div key={goal.id}",
+    "            onClick={() => navigate(`/goals/${goal.id}`)}",
+    "            className='bg-white rounded-2xl shadow-lg p-6",
+    "                       cursor-pointer hover:shadow-2xl'>",
+    "            <h3 className='text-lg font-bold'>{goal.title}</h3>",
+    "            <p className='text-gray-600'>{goal.description}</p>",
+    "          </div>",
+    "        ))}",
+    "      </div>",
+    "",
+    "      {showModal && (",
+    "        <div className='fixed inset-0 bg-black bg-opacity-60",
+    "                        backdrop-blur-sm flex items-center",
+    "                        justify-center z-50'>",
+    "          <div className='bg-white rounded-2xl max-w-md w-full'>",
+    "            <form onSubmit={handleSubmit} className='p-6'>",
+    "              <input type='text'",
+    "                value={formData.title}",
+    "                onChange={(e) => setFormData({",
+    "                  ...formData, title: e.target.value",
+    "                })}",
+    "                placeholder='Goal title' required",
+    "              />",
+    "              <button type='submit' disabled={loading}>",
+    "                {loading ? 'Creating...' : 'Create Goal'}",
+    "              </button>",
+    "            </form>",
+    "          </div>",
+    "        </div>",
+    "      )}",
+    "    </div>",
+    "  )",
+    "}"
+], "JavaScript")
+
+add_para(doc, 'formData стан містить поля форми, що дозволяє контролювати всі input\'и. handleSubmit очищає форму після успішного створення та перезавантажує список. showModal контролює видимість модального вікна. Модальне вікно використовує fixed позиціонування з backdrop-blur для сучасного ефекту. onClick на картці цілі переводить на детальну сторінку через React Router navigate.')
+
+doc.add_paragraph()
+add_para(doc, 'Spread operator (...formData) дозволяє оновлювати окремі поля форми без втрати інших значень. toast.success/error надають feedback користувачу. Grid layout з gap забезпечує рівномірні відступи між картками. Gradient класи Tailwind створюють привабливий дизайн кнопок.')
+
+# Висновок до розділу 4
+doc.add_page_break()
+doc.add_heading('4.3 Архітектурні паттерни та best practices', level=2)
+
+add_para(doc, 'У реалізації системи використано наступні архітектурні паттерни та підходи:')
+add_para(doc, '1. Багатошарова архітектура (Layered Architecture): чітке розділення на Controller (presentation), Service (business logic), Repository (data access). Це забезпечує separation of concerns та полегшує тестування кожного шару окремо.')
+add_para(doc, '2. Dependency Injection: Spring Framework автоматично інжектить залежності через конструктори, що робить код більш тестованим та слабко зв\'язаним.')
+add_para(doc, '3. Repository Pattern: абстрагує доступ до даних через інтерфейси, дозволяючи змінювати базу даних без зміни бізнес-логіки.')
+add_para(doc, '4. Builder Pattern: використовується для створення складних об\'єктів (Goal, User) з багатьма опціональними параметрами.')
+add_para(doc, '5. Component-Based Architecture (React): UI розбито на незалежні компоненти, що можна переіспользовувати.')
+add_para(doc, '6. Single Source of Truth: Zustand store є єдиним джерелом даних про стан автентифікації.')
+add_para(doc, '7. Separation of Concerns: бізнес-логіка відділена від презентаційного шару, API клієнти винесені в окремі модулі.')
+
+doc.add_paragraph()
+add_para(doc, 'Технології та бібліотеки обрано з урахуванням best practices індустрії: Spring Boot для надійного backend, React для динамічного UI, MongoDB для гнучкої схеми даних, JWT для stateless автентифікації, Tailwind CSS для швидкої розробки адаптивного дизайну.')
+
 # Висновок до розділу 4
 doc.add_paragraph()
-add_para(doc, 'У даному розділі детально розглянуто реалізацію веб-системи для відстеження звичок. Backend побудовано на Spring Boot з трьохшаровою архітектурою (Controller-Service-Repository), використовуючи MongoDB як сховище даних. Frontend реалізовано на React 18 з використанням сучасних підходів: функціональні компоненти, хуки, Zustand для state management, React Router для навігації. Система забезпечує безпеку через JWT автентифікацію, автоматичне оновлення токенів, валідацію доступу на рівні сервісів. Код написано з дотриманням принципів чистого коду, SOLID та DRY.')
+add_para(doc, 'У даному розділі детально розглянуто реалізацію веб-системи для відстеження звичок. Backend побудовано на Spring Boot з трьохшаровою архітектурою (Controller-Service-Repository), використовуючи MongoDB як сховище даних та Spring Security для захисту API. Frontend реалізовано на React 18 з використанням сучасних підходів: функціональні компоненти, хуки, Zustand для state management, React Router для навігації. Система забезпечує безпеку через JWT автентифікацію, автоматичне оновлення токенів, валідацію доступу на рівні сервісів. Код написано з дотриманням принципів чистого коду, SOLID та DRY. Наведені приклади коду демонструють практичну реалізацію ключових модулів системи з детальними поясненнями.')
 
 # Збереження документу
 doc.save('/home/runner/work/cw_web/cw_web/Курсова_Робота_HabitTracker.docx')
@@ -939,7 +1162,11 @@ print("📊 Додано детальні приклади коду з пояс�
 print("   - Entity класи (User, Goal, Group)")
 print("   - Controller класи (Auth, Goal, Progress)")
 print("   - Service класи (GoalService)")
-print("   - React компоненти (App, Layout, Login, Dashboard)")
+print("   - Repository класи (GoalRepository)")
+print("   - Security Configuration (SecurityConfig)")
+print("   - React компоненти (App, Layout, Login, Dashboard, Goals)")
 print("   - API клієнти (client, goals)")
 print("   - State management (Zustand)")
+print("   - Архітектурні паттерни")
 print("📖 Кожен приклад коду супроводжується детальним поясненням")
+print("📄 Розмір документу значно збільшено для відповідності вимогам")
