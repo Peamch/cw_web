@@ -5,7 +5,7 @@
 """
 import os
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml.ns import qn
 
@@ -23,16 +23,6 @@ def set_font(run, name='Times New Roman', size=14, bold=False, italic=False):
     rPr = r.get_or_add_rPr()
     rFonts = rPr.get_or_add_rFonts()
     rFonts.set(qn('w:eastAsia'), name)
-
-def add_para(doc, text, bold=False, italic=False):
-    """Додає параграф з форматуванням."""
-    p = doc.add_paragraph()
-    run = p.add_run(text)
-    set_font(run, bold=bold, italic=italic)
-    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    p.paragraph_format.first_line_indent = Inches(0.5)
-    p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-    return p
 
 # База джерел для технологій та архітектурних паттернів
 REFERENCES = {
@@ -154,7 +144,10 @@ PATTERN_CITATIONS = {
 }
 
 def add_citation_to_text(text, citations_map):
-    """Додає посилання до тексту на основі знайдених технологій/паттернів."""
+    """Додає посилання до тексту на основі знайдених технологій/паттернів.
+    
+    Замінює тільки першу появу кожного терміна, щоб уникнути дублювання посилань.
+    """
     modified_text = text
     added_citations = set()
     
@@ -163,7 +156,7 @@ def add_citation_to_text(text, citations_map):
     
     for term, citation in sorted_items:
         if term in modified_text and citation not in added_citations:
-            # Додаємо посилання після терміна
+            # Додаємо посилання після терміна (тільки перша поява в параграфі)
             modified_text = modified_text.replace(term, f"{term} {citation}", 1)
             added_citations.add(citation)
     
@@ -176,8 +169,7 @@ def process_document():
     
     print("Додавання посилань до тексту...")
     
-    # Обробляємо параграфи з технологіями (приблизно 125-145)
-    # та архітектурними паттернами (приблизно 656-668, 773-785)
+    # Обробляємо всі параграфи документу для пошуку технологій та паттернів
     for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
         
